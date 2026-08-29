@@ -1,23 +1,14 @@
 import { useEffect, useState } from "react";
-
 import Result from "../result/Result";
 import Searc from "../search/Searc";
 import Header from "./Header";
 
 export default function AppLayout() {
-  const geolocationSupported =
-    typeof navigator !== "undefined" &&
-    "geolocation" in navigator;
-
   const [search, setSearch] = useState("");
-
   const [location, setLocation] = useState(null);
 
-  const [locationLoading, setLocationLoading] =
-    useState(geolocationSupported);
-
-  const [locationError, setLocationError] =
-    useState("");
+  const [locationLoading, setLocationLoading] = useState(true);
+  const [locationError, setLocationError] = useState("");
 
   const [units, setUnits] = useState({
     temperature: "celsius",
@@ -25,8 +16,16 @@ export default function AppLayout() {
     precipitation: "mm",
   });
 
+  const geolocationSupported =
+    typeof navigator !== "undefined" &&
+    "geolocation" in navigator;
+
   useEffect(() => {
     if (!geolocationSupported) {
+      setLocationLoading(false);
+      setLocationError(
+        "Geolocation is not supported by your browser.",
+      );
       return;
     }
 
@@ -55,12 +54,9 @@ export default function AppLayout() {
   }, [geolocationSupported]);
 
   return (
-    <div className="min-h-dvh w-full bg-[#02012b] px-4 py-4 md:px-8 md:py-8">
-      <div className="mx-auto w-full max-w-6xl">
-        <Header
-          units={units}
-          setUnits={setUnits}
-        />
+    <div className="min-h-dvh w-full bg-[#02012b] px-4 py-4 sm:px-6 md:px-8 lg:px-10">
+      <div className="mx-auto w-full max-w-[1100px]">
+        <Header units={units} setUnits={setUnits} />
 
         <Searc
           search={search}
@@ -69,17 +65,16 @@ export default function AppLayout() {
         />
 
         {!geolocationSupported && (
-          <p className="mt-4 text-center text-sm text-gray-400">
+          <p className="mt-3 text-center text-sm text-gray-400">
             Geolocation is not supported by your browser.
           </p>
         )}
 
-        {geolocationSupported &&
-          locationError && (
-            <p className="mt-4 text-center text-sm text-gray-400">
-              {locationError}
-            </p>
-          )}
+        {geolocationSupported && locationError && (
+          <p className="mt-3 text-center text-sm text-gray-400">
+            {locationError}
+          </p>
+        )}
 
         <Result
           location={location}
