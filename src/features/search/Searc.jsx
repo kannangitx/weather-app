@@ -1,25 +1,14 @@
 import searchIcon from "../../assets/images/icon-search.svg";
-
 import { useEffect, useState } from "react";
 
-export default function Searc({
-  search,
-  setSearch,
-  setLocation,
-}) {
-  const [suggestions, setSuggestions] =
-    useState([]);
-
-  const [selectedPlace, setSelectedPlace] =
-    useState(null);
-
-  const [searchError, setSearchError] =
-    useState("");
+export default function Searc({ search, setSearch, setLocation }) {
+  const [suggestions, setSuggestions] = useState([]);
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const [searchError, setSearchError] = useState("");
 
   useEffect(() => {
-    const value = search?.trim();
-
-    if (!value) {
+    if (!search?.trim()) {
+      setSuggestions([]);
       return;
     }
 
@@ -29,7 +18,7 @@ export default function Searc({
       try {
         const res = await fetch(
           `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
-            value,
+            search.trim(),
           )}&count=5&language=en&format=json`,
           {
             signal: controller.signal,
@@ -37,37 +26,28 @@ export default function Searc({
         );
 
         if (!res.ok) {
-          throw new Error(
-            "Unable to search location",
-          );
+          throw new Error("Search failed");
         }
 
         const data = await res.json();
 
         const results = data.results || [];
 
-        const uniqueResults =
-          results.filter(
-            (place, index, array) =>
-              index ===
-              array.findIndex(
-                (item) =>
-                  item.name ===
-                    place.name &&
-                  item.latitude ===
-                    place.latitude &&
-                  item.longitude ===
-                    place.longitude,
-              ),
-          );
+        const uniqueResults = results.filter(
+          (place, index, array) =>
+            index ===
+            array.findIndex(
+              (item) =>
+                item.name === place.name &&
+                item.latitude === place.latitude &&
+                item.longitude === place.longitude,
+            ),
+        );
 
         setSuggestions(uniqueResults);
       } catch (error) {
         if (error.name !== "AbortError") {
-          setSuggestions([]);
-          setSearchError(
-            "Unable to search for this location.",
-          );
+          console.log("Search error:", error);
         }
       }
     }, 500);
@@ -97,100 +77,89 @@ export default function Searc({
     setSearchError("");
   }
 
-  function handleSearchClick() {
-    const place =
-      selectedPlace || suggestions[0];
+  function handleSearchSubmit(e) {
+    e.preventDefault();
 
-    if (!place) {
-      setSearchError(
-        "Please enter a valid city or location.",
-      );
-      return;
+    let place = selectedPlace;
+
+    if (!place && suggestions.length > 0) {
+      place = suggestions[0];
     }
 
-    setSearch(place.name);
-    setSelectedPlace(place);
-    setSuggestions([]);
+    if (!place) {
+      setSearchError("Please enter a valid city, state, or district.");
+      setSuggestions([]);
+      return;
+    }
 
     setLocation({
       latitude: place.latitude,
       longitude: place.longitude,
     });
 
+    setSearch(place.name);
+    setSelectedPlace(place);
+    setSuggestions([]);
     setSearchError("");
   }
 
   return (
-    <div className="flex w-full flex-col items-center justify-center pt-8 md:pt-10">
-      <h1 className="text-center text-3xl font-semibold text-white md:text-5xl">
+    <div className="w-full flex flex-col justify-center items-center mt-10">
+      <h1 className="text-3xl md:text-5xl text-white font-semibold text-center">
         How's the sky looking today?
       </h1>
 
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSearchClick();
-        }}
-        className="mt-8 flex w-full max-w-160 gap-2.5"
+        onSubmit={handleSearchSubmit}
+        className="w-full flex flex-col items-center"
       >
-        <div className="relative flex h-12 min-w-0 flex-1 gap-2.5 rounded-sm bg-[#25253f] p-2.5">
-          <img
-            src={searchIcon}
-            alt=""
-            className="w-5 shrink-0"
-          />
+        <div className="w-full flex gap-2.5 mt-10 justify-center">
+          <div className="bg-[#25253f] flex h-12 w-full md:w-120 rounded-sm gap-2.5 p-2.5 relative">
+            <img src={searchIcon} alt="Search" className="w-5" />
 
-          <input
-            type="text"
-            placeholder="Search for a place..."
-            value={search}
-            onChange={handleSearchChange}
-            className="w-full min-w-0 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4656d7]"
-            aria-label="Search for a place"
-          />
+            <input
+              type="text"
+              placeholder="Search for a place..."
+              value={search}
+              onChange={handleSearchChange}
+              className="w-full text-white placeholder:text-gray-400 focus:outline-none pl-2"
+            />
 
-          {suggestions.length > 0 && (
-            <div className="absolute left-0 top-14 z-50 flex w-full flex-col gap-1.5 rounded-sm bg-[#25253f] p-2 shadow-xl">
-              {suggestions.map((place) => (
-                <button
-                  type="button"
-                  key={`${place.id}-${place.latitude}-${place.longitude}`}
-                  onClick={() =>
-                    handleSuggestionClick(place)
-                  }
-                  className="flex min-h-12 w-full cursor-pointer items-center rounded-sm pl-2 text-left text-white hover:bg-[#474768da] focus:outline-none focus:ring-2 focus:ring-[#4656d7]"
-                >
-                  <div>
-                    <p className="font-medium">
-                      {place.name}
-                    </p>
+            {suggestions.length > 0 && (
+              <div className="absolute bg-[#25253f] w-full top-14 left-0 p-2 flex flex-col gap-1.5 rounded-sm z-50">
+                {suggestions.map((place) => (
+                  <button
+                    type="button"
+                    key={`${place.id}-${place.latitude}-${place.longitude}`}
+                    onClick={() => handleSuggestionClick(place)}
+                    className="w-full min-h-12 flex items-center pl-2 hover:bg-[#474768da] text-white cursor-pointer rounded-sm text-left"
+                  >
+                    <div>
+                      <p className="font-medium">{place.name}</p>
 
-                    <p className="text-xs text-gray-400">
-                      {place.admin1
-                        ? `${place.admin1}, `
-                        : ""}
-                      {place.country || ""}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+                      <p className="text-xs text-gray-400">
+                        {place.admin1 ? `${place.admin1}, ` : ""}
+                        {place.country || ""}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            className="h-12 w-22 bg-[#4656d7] rounded-sm cursor-pointer text-white shrink-0 hover:bg-[#5363e5] transition"
+          >
+            Search
+          </button>
         </div>
 
-        <button
-          type="submit"
-          className="h-12 w-22 shrink-0 cursor-pointer rounded-sm bg-[#4656d7] text-amber-50 transition hover:bg-[#5665e5] focus:outline-none focus:ring-2 focus:ring-white"
-        >
-          Search
-        </button>
+        {searchError && (
+          <p className="text-red-400 text-sm mt-3">{searchError}</p>
+        )}
       </form>
-
-      {searchError && (
-        <p className="mt-3 text-center text-sm text-red-400">
-          {searchError}
-        </p>
-      )}
     </div>
   );
 }
