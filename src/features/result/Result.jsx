@@ -441,7 +441,7 @@ export default function Result({
           </section>
         </section>
 
-        <aside className="bg-[#25253f] rounded-lg text-white h-[450px] overflow-hidden">
+        <aside className="bg-[#25253f] rounded-lg text-white h-[470px] overflow-hidden">
           <div className="flex justify-between p-3 items-center">
             <h2 className="text-sm font-medium">
               Hourly forecast
@@ -511,7 +511,7 @@ export default function Result({
           ) : (
             <div
               className="
-                h-[385px]
+                h-[395px]
                 p-3
                 flex
                 flex-col
