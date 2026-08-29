@@ -42,7 +42,11 @@ function mmToInches(mm) {
   return mm * 0.0393701;
 }
 
-export default function Result({ location, locationLoading, units }) {
+export default function Result({
+  location,
+  locationLoading,
+  units,
+}) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [place, setPlace] = useState(null);
@@ -75,12 +79,22 @@ export default function Result({ location, locationLoading, units }) {
 
         const weatherData = await res.json();
 
+        if (controller.signal.aborted) return;
+
         setData(weatherData);
         setDate(getDate(weatherData.current.time));
         setStatus(
-          getWeatherCondition(weatherData.current.weather_code),
+          getWeatherCondition(
+            weatherData.current.weather_code,
+          ),
         );
-        setDay(getWordDay(weatherData.current.time, "long"));
+
+        setDay(
+          getWordDay(
+            weatherData.current.time,
+            "long",
+          ),
+        );
 
         try {
           const placeData = await getPlaceDetails(
@@ -88,16 +102,22 @@ export default function Result({ location, locationLoading, units }) {
             longitude,
           );
 
-          setPlace(placeData);
+          if (!controller.signal.aborted) {
+            setPlace(placeData);
+          }
         } catch {
-          setPlace(null);
+          if (!controller.signal.aborted) {
+            setPlace(null);
+          }
         }
       } catch (error) {
         if (error.name !== "AbortError") {
           console.error(error);
         }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
 
@@ -133,7 +153,10 @@ export default function Result({ location, locationLoading, units }) {
     const grouped = {};
 
     hourly.forEach((item) => {
-      const weekday = getWordDay(item.time, "long");
+      const weekday = getWordDay(
+        item.time,
+        "long",
+      );
 
       if (!grouped[weekday]) {
         grouped[weekday] = [];
@@ -145,7 +168,8 @@ export default function Result({ location, locationLoading, units }) {
     return grouped;
   }, [hourly]);
 
-  const selectedHourly = groupedHourly[day] || [];
+  const selectedHourly =
+    groupedHourly[day] || [];
 
   const locationName =
     place?.city ||
@@ -156,7 +180,9 @@ export default function Result({ location, locationLoading, units }) {
   const temperature = data
     ? Math.round(
         units.temperature === "fahrenheit"
-          ? celsiusToFahrenheit(data.current.temperature_2m)
+          ? celsiusToFahrenheit(
+              data.current.temperature_2m,
+            )
           : data.current.temperature_2m,
       )
     : 0;
@@ -174,14 +200,18 @@ export default function Result({ location, locationLoading, units }) {
   const wind = data
     ? Math.round(
         units.windSpeed === "mph"
-          ? kmhToMph(data.current.wind_speed_10m)
+          ? kmhToMph(
+              data.current.wind_speed_10m,
+            )
           : data.current.wind_speed_10m,
       )
     : 0;
 
   const precipitation = data
     ? units.precipitation === "inch"
-      ? mmToInches(data.current.precipitation).toFixed(2)
+      ? mmToInches(
+          data.current.precipitation,
+        ).toFixed(2)
       : data.current.precipitation
     : 0;
 
@@ -194,6 +224,7 @@ export default function Result({ location, locationLoading, units }) {
             alt="Loading"
             className="w-8 animate-spin"
           />
+
           <p className="text-white mt-3">
             Getting your location...
           </p>
@@ -208,10 +239,10 @@ export default function Result({ location, locationLoading, units }) {
 
   return (
     <main className="w-full max-w-[1100px] mx-auto mt-8">
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
         <section className="min-w-0 flex flex-col gap-5">
           <div
-            className="w-full h-44 sm:h-48 rounded-xl p-5 bg-cover bg-center flex justify-between items-center overflow-hidden"
+            className="relative w-full min-h-[175px] rounded-xl p-5 sm:p-6 bg-cover bg-center overflow-hidden flex items-center justify-between"
             style={{
               backgroundColor: "#25253f",
               backgroundImage: loading
@@ -220,12 +251,13 @@ export default function Result({ location, locationLoading, units }) {
             }}
           >
             {loading ? (
-              <div className="w-full h-full flex flex-col items-center justify-center">
+              <div className="w-full h-full min-h-[125px] flex flex-col items-center justify-center">
                 <img
                   src={loadingIcon}
                   alt="Loading"
                   className="w-8 animate-spin"
                 />
+
                 <p className="text-white mt-2">
                   Loading...
                 </p>
@@ -233,9 +265,9 @@ export default function Result({ location, locationLoading, units }) {
             ) : (
               <>
                 <div className="text-white min-w-0">
-                  <p className="font-semibold text-2xl sm:text-3xl truncate">
+                  <h2 className="font-semibold text-2xl sm:text-3xl truncate">
                     {locationName}
-                  </p>
+                  </h2>
 
                   <p className="text-sm text-gray-300 mt-1">
                     {place?.countryName ||
@@ -248,17 +280,17 @@ export default function Result({ location, locationLoading, units }) {
                   </p>
                 </div>
 
-                <div className="flex items-center shrink-0">
+                <div className="flex items-center shrink-0 ml-3">
                   <img
                     src={
                       weatherIcons[status] ??
                       weatherIcons.overcast
                     }
-                    alt={status}
-                    className="w-14 sm:w-20"
+                    alt={`${status} weather`}
+                    className="w-12 sm:w-16 lg:w-20"
                   />
 
-                  <p className="text-5xl sm:text-7xl text-white">
+                  <p className="text-5xl sm:text-6xl lg:text-7xl text-white">
                     {temperature}°
                   </p>
                 </div>
@@ -266,18 +298,20 @@ export default function Result({ location, locationLoading, units }) {
             )}
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-[#25253f] h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-[#25253f] min-h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
               <p className="text-sm font-bold">
                 Feels Like
               </p>
 
               <p className="text-2xl">
-                {loading ? "—" : `${feelsLike}°`}
+                {loading
+                  ? "—"
+                  : `${feelsLike}°`}
               </p>
             </div>
 
-            <div className="bg-[#25253f] h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
+            <div className="bg-[#25253f] min-h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
               <p className="text-sm font-bold">
                 Humidity
               </p>
@@ -286,12 +320,13 @@ export default function Result({ location, locationLoading, units }) {
                 {loading
                   ? "—"
                   : `${Math.round(
-                      data.current.relative_humidity_2m,
+                      data.current
+                        .relative_humidity_2m,
                     )}%`}
               </p>
             </div>
 
-            <div className="bg-[#25253f] h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
+            <div className="bg-[#25253f] min-h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
               <p className="text-sm font-bold">
                 Wind
               </p>
@@ -300,14 +335,15 @@ export default function Result({ location, locationLoading, units }) {
                 {loading
                   ? "—"
                   : `${wind} ${
-                      units.windSpeed === "mph"
+                      units.windSpeed ===
+                      "mph"
                         ? "mph"
                         : "km/h"
                     }`}
               </p>
             </div>
 
-            <div className="bg-[#25253f] h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
+            <div className="bg-[#25253f] min-h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
               <p className="text-sm font-bold">
                 Precipitation
               </p>
@@ -316,7 +352,8 @@ export default function Result({ location, locationLoading, units }) {
                 {loading
                   ? "—"
                   : `${precipitation} ${
-                      units.precipitation === "inch"
+                      units.precipitation ===
+                      "inch"
                         ? "in"
                         : "mm"
                     }`}
@@ -325,20 +362,20 @@ export default function Result({ location, locationLoading, units }) {
           </div>
 
           <section className="text-white">
-            <p className="mb-3 font-medium">
+            <h2 className="mb-3 font-medium">
               Daily forecast
-            </p>
+            </h2>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
               {loading
-                ? Array.from({ length: 7 }).map(
-                    (_, index) => (
-                      <div
-                        key={index}
-                        className="h-30 bg-[#25253f] rounded-lg animate-pulse"
-                      />
-                    ),
-                  )
+                ? Array.from({
+                    length: 7,
+                  }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-30 bg-[#25253f] rounded-lg animate-pulse"
+                    />
+                  ))
                 : forecast
                     .slice(0, 7)
                     .map((item) => {
@@ -347,12 +384,30 @@ export default function Result({ location, locationLoading, units }) {
                           item.weatherCode,
                         );
 
+                      const maxTemp = Math.round(
+                        units.temperature ===
+                          "fahrenheit"
+                          ? celsiusToFahrenheit(
+                              item.max,
+                            )
+                          : item.max,
+                      );
+
+                      const minTemp = Math.round(
+                        units.temperature ===
+                          "fahrenheit"
+                          ? celsiusToFahrenheit(
+                              item.min,
+                            )
+                          : item.min,
+                      );
+
                       return (
                         <div
                           key={item.day}
                           className="h-30 bg-[#25253f] rounded-lg flex flex-col justify-center items-center p-2"
                         >
-                          <p className="text-sm">
+                          <p className="text-sm font-medium">
                             {getWordDay(
                               item.day,
                               "short",
@@ -366,33 +421,17 @@ export default function Result({ location, locationLoading, units }) {
                               ] ??
                               weatherIcons.overcast
                             }
-                            alt={weatherCondition}
-                            className="w-9"
+                            alt={`${weatherCondition} weather`}
+                            className="w-9 mt-2"
                           />
 
-                          <div className="flex gap-3">
+                          <div className="flex gap-3 mt-1">
                             <p>
-                              {Math.round(
-                                units.temperature ===
-                                  "fahrenheit"
-                                  ? celsiusToFahrenheit(
-                                      item.max,
-                                    )
-                                  : item.max,
-                              )}
-                              °
+                              {maxTemp}°
                             </p>
 
                             <p className="text-gray-400">
-                              {Math.round(
-                                units.temperature ===
-                                  "fahrenheit"
-                                  ? celsiusToFahrenheit(
-                                      item.min,
-                                    )
-                                  : item.min,
-                              )}
-                              °
+                              {minTemp}°
                             </p>
                           </div>
                         </div>
@@ -404,70 +443,70 @@ export default function Result({ location, locationLoading, units }) {
 
         <aside className="bg-[#25253f] rounded-lg text-white h-[430px] overflow-hidden">
           <div className="flex justify-between p-3 items-center">
-            <p className="text-sm font-medium">
+            <h2 className="text-sm font-medium">
               Hourly forecast
-            </p>
+            </h2>
 
-            <button
-              type="button"
-              onClick={() =>
-                setShow((previous) => !previous)
-              }
-              aria-expanded={show}
-              className="h-8 px-2 flex justify-center items-center gap-1 cursor-pointer border border-[#ffffff17] rounded-sm relative text-xs"
-            >
-              <span>{day || "Select day"}</span>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() =>
+                  setShow((previous) => !previous)
+                }
+                aria-expanded={show}
+                aria-haspopup="listbox"
+                className="h-8 min-w-[90px] px-2 flex justify-center items-center gap-1 cursor-pointer border border-[#ffffff17] rounded-sm text-xs"
+              >
+                <span>
+                  {day || "Select day"}
+                </span>
 
-              <img
-                src={dropIcon}
-                alt=""
-                className={`w-3 transition-transform ${
-                  show ? "rotate-180" : ""
-                }`}
-              />
+                <img
+                  src={dropIcon}
+                  alt=""
+                  className={`w-3 transition-transform ${
+                    show ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
 
               {show && (
-                <div className="absolute w-40 bg-[#25253f] right-0 top-10 border border-[#ffffff17] rounded-md p-2 z-50">
-                  {Object.keys(groupedHourly).map(
-                    (item) => (
-                      <span
-                        key={item}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                          setDay(item);
-                          setShow(false);
-                        }}
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === "Enter" ||
-                            e.key === " "
-                          ) {
-                            setDay(item);
-                            setShow(false);
-                          }
-                        }}
-                        className="block w-full text-left px-2 py-2 hover:bg-[#2f2f49] rounded-sm cursor-pointer"
-                      >
-                        {item}
-                      </span>
-                    ),
-                  )}
+                <div
+                  role="listbox"
+                  className="absolute w-40 bg-[#25253f] right-0 top-10 border border-[#ffffff17] rounded-md p-1 z-50 shadow-lg"
+                >
+                  {Object.keys(
+                    groupedHourly,
+                  ).map((item) => (
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={day === item}
+                      key={item}
+                      onClick={() => {
+                        setDay(item);
+                        setShow(false);
+                      }}
+                      className="block w-full text-left px-3 py-2 hover:bg-[#2f2f49] rounded-sm cursor-pointer text-xs"
+                    >
+                      {item}
+                    </button>
+                  ))}
                 </div>
               )}
-            </button>
+            </div>
           </div>
 
           {loading ? (
             <div className="p-3 flex flex-col gap-2">
-              {Array.from({ length: 7 }).map(
-                (_, index) => (
-                  <div
-                    key={index}
-                    className="h-12 bg-[#2f2f49] rounded-md animate-pulse"
-                  />
-                ),
-              )}
+              {Array.from({
+                length: 7,
+              }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-12 bg-[#2f2f49] rounded-md animate-pulse"
+                />
+              ))}
             </div>
           ) : (
             <div
@@ -484,47 +523,58 @@ export default function Result({ location, locationLoading, units }) {
                 [&::-webkit-scrollbar-thumb]:rounded-full
               "
             >
-              {selectedHourly.map((item) => (
-                <div
-                  key={item.time}
-                  className="flex justify-between w-full min-h-12 bg-[#2f2f49] rounded-md p-2 items-center shrink-0"
-                >
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={
-                        weatherIcons[
-                          getWeatherCondition(
-                            item.weatherCode,
-                          )
-                        ] ?? weatherIcons.overcast
-                      }
-                      alt=""
-                      className="w-7"
-                    />
+              {selectedHourly.map((item) => {
+                const weatherCondition =
+                  getWeatherCondition(
+                    item.weatherCode,
+                  );
 
-                    <p className="text-sm">
-                      {new Date(
-                        item.time,
-                      ).toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
+                const hourlyTemperature =
+                  Math.round(
+                    units.temperature ===
+                      "fahrenheit"
+                      ? celsiusToFahrenheit(
+                          item.temperature,
+                        )
+                      : item.temperature,
+                  );
+
+                return (
+                  <div
+                    key={item.time}
+                    className="flex justify-between w-full min-h-12 bg-[#2f2f49] rounded-md px-3 items-center shrink-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={
+                          weatherIcons[
+                            weatherCondition
+                          ] ??
+                          weatherIcons.overcast
+                        }
+                        alt={`${weatherCondition} weather`}
+                        className="w-7"
+                      />
+
+                      <p className="text-sm">
+                        {new Date(
+                          item.time,
+                        ).toLocaleTimeString(
+                          [],
+                          {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          },
+                        )}
+                      </p>
+                    </div>
+
+                    <p>
+                      {hourlyTemperature}°
                     </p>
                   </div>
-
-                  <p>
-                    {Math.round(
-                      units.temperature ===
-                        "fahrenheit"
-                        ? celsiusToFahrenheit(
-                            item.temperature,
-                          )
-                        : item.temperature,
-                    )}
-                    °
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </aside>
