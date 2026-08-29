@@ -511,7 +511,7 @@ export default function Result({
           ) : (
             <div
               className="
-                h-[370px]
+                h-[385px]
                 p-3
                 flex
                 flex-col
