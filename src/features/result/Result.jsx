@@ -61,46 +61,55 @@ export default function Result({
       return;
     }
 
-    const controller = new AbortController();
+    const controller =
+      new AbortController();
 
     async function fetchWeather() {
       setLoading(true);
       setError("");
-      setData(null);
 
       try {
-        const { latitude, longitude } = location;
+        const {
+          latitude,
+          longitude,
+        } = location;
 
         const res = await fetch(
-          `https://api.open-meteo.com/v1/forecast` +
-            `?latitude=${latitude}` +
-            `&longitude=${longitude}` +
-            `&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m,precipitation` +
-            `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
-            `&hourly=temperature_2m,weather_code` +
-            `&timezone=auto`,
+          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m,precipitation&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m,weather_code&timezone=auto`,
           {
-            signal: controller.signal,
+            signal:
+              controller.signal,
           },
         );
 
         if (!res.ok) {
-          throw new Error("Weather API failed");
+          throw new Error(
+            "Weather API failed",
+          );
         }
 
-        const weatherData = await res.json();
+        const weatherData =
+          await res.json();
 
         if (controller.signal.aborted) {
           return;
         }
 
         setData(weatherData);
-        setDate(getDate(weatherData.current.time));
-        setStatus(
-          getWeatherCondition(
-            weatherData.current.weather_code,
+
+        setDate(
+          getDate(
+            weatherData.current.time,
           ),
         );
+
+        setStatus(
+          getWeatherCondition(
+            weatherData.current
+              .weather_code,
+          ),
+        );
+
         setDay(
           getWordDay(
             weatherData.current.time,
@@ -109,23 +118,24 @@ export default function Result({
         );
 
         try {
-          const placeData = await getPlaceDetails(
-            latitude,
-            longitude,
-          );
+          const placeData =
+            await getPlaceDetails(
+              latitude,
+              longitude,
+            );
 
           if (!controller.signal.aborted) {
             setPlace(placeData);
           }
-        } catch (placeError) {
-          if (
-            placeError.name !== "AbortError"
-          ) {
+        } catch {
+          if (!controller.signal.aborted) {
             setPlace(null);
           }
         }
       } catch (error) {
-        if (error.name !== "AbortError") {
+        if (
+          error.name !== "AbortError"
+        ) {
           setError(
             "Unable to load weather data. Please try again.",
           );
@@ -153,11 +163,15 @@ export default function Result({
       (dateValue, index) => ({
         day: dateValue,
         weatherCode:
-          data.daily.weather_code[index],
+          data.daily.weather_code[
+            index
+          ],
         max:
-          data.daily.temperature_2m_max[index],
+          data.daily
+            .temperature_2m_max[index],
         min:
-          data.daily.temperature_2m_min[index],
+          data.daily
+            .temperature_2m_min[index],
       }),
     );
   }, [data]);
@@ -171,9 +185,13 @@ export default function Result({
       (time, index) => ({
         time,
         weatherCode:
-          data.hourly.weather_code[index],
+          data.hourly.weather_code[
+            index
+          ],
         temperature:
-          data.hourly.temperature_2m[index],
+          data.hourly.temperature_2m[
+            index
+          ],
       }),
     );
   }, [data]);
@@ -201,18 +219,15 @@ export default function Result({
     groupedHourly[day] || [];
 
   const locationName =
-    location?.name ||
     place?.city ||
     place?.locality ||
     place?.principalSubdivision ||
     "Your Location";
 
   const locationCountry =
-    location?.country ||
-    place?.countryName ||
-    "";
+    place?.countryName || "";
 
-  const getIcon = (code) => {
+  function getIcon(code) {
     const weatherStatus =
       getWeatherCondition(code);
 
@@ -220,11 +235,11 @@ export default function Result({
       weatherIcons[weatherStatus] ||
       overcast
     );
-  };
+  }
 
   if (locationLoading) {
     return (
-      <div className="mt-7 w-full max-w-6xl">
+      <div className="mx-auto mt-7 w-full max-w-6xl">
         <div className="flex h-44 w-full flex-col items-center justify-center rounded-xl bg-[#25253f]">
           <img
             src={loadingIcon}
@@ -240,11 +255,23 @@ export default function Result({
     );
   }
 
+  if (!location) {
+    return (
+      <div className="mx-auto mt-7 w-full max-w-6xl">
+        <div className="flex h-44 w-full items-center justify-center rounded-xl bg-[#25253f]">
+          <p className="text-center text-gray-400">
+            Search for a city to see the weather.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (error && !data) {
     return (
-      <div className="mt-7 flex w-full max-w-6xl justify-center">
-        <div className="flex min-h-44 w-full items-center justify-center rounded-xl bg-[#25253f] p-6 text-center">
-          <p className="text-red-400">
+      <div className="mx-auto mt-7 w-full max-w-6xl">
+        <div className="flex h-44 w-full items-center justify-center rounded-xl bg-[#25253f]">
+          <p className="text-center text-red-400">
             {error}
           </p>
         </div>
@@ -253,16 +280,16 @@ export default function Result({
   }
 
   return (
-    <div className="mt-7 flex w-full max-w-6xl flex-wrap justify-center gap-5">
-      <div className="flex w-full max-w-200 flex-col gap-5">
+    <div className="mx-auto mt-7 grid w-full max-w-6xl grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_240px]">
+      <div className="flex min-w-0 flex-col gap-5">
         <div
-          className="flex h-44 w-full items-center justify-between rounded-xl bg-cover bg-no-repeat p-5"
+          className="flex min-h-44 w-full items-center justify-between rounded-xl bg-cover bg-no-repeat p-5 md:p-6"
           style={{
-            backgroundColor: "#25253f",
-            backgroundImage:
-              loading
-                ? "none"
-                : `url(${bg})`,
+            backgroundColor:
+              "#25253f",
+            backgroundImage: loading
+              ? "none"
+              : `url(${bg})`,
           }}
         >
           {loading ? (
@@ -280,7 +307,7 @@ export default function Result({
           ) : data ? (
             <>
               <div className="text-white">
-                <p className="text-2xl font-semibold">
+                <p className="text-xl font-semibold md:text-2xl">
                   {locationName}
                 </p>
 
@@ -298,10 +325,11 @@ export default function Result({
               <div className="flex items-center">
                 <img
                   src={getIcon(
-                    data.current.weather_code,
+                    data.current
+                      .weather_code,
                   )}
                   alt={status}
-                  className="w-16 md:w-20"
+                  className="w-14 md:w-20"
                 />
 
                 <p className="text-5xl text-white md:text-7xl">
@@ -322,8 +350,8 @@ export default function Result({
           ) : null}
         </div>
 
-        <div className="flex w-full flex-wrap gap-3">
-          <div className="flex h-24 min-w-35 flex-1 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="flex h-24 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
             <p className="text-sm font-bold">
               Feels Like
             </p>
@@ -331,7 +359,7 @@ export default function Result({
             <p className="text-2xl">
               {loading || !data
                 ? "—"
-                : Math.round(
+                : `${Math.round(
                     units.temperature ===
                       "fahrenheit"
                       ? celsiusToFahrenheit(
@@ -340,11 +368,11 @@ export default function Result({
                         )
                       : data.current
                           .apparent_temperature,
-                  ) + "°"}
+                  )}°`}
             </p>
           </div>
 
-          <div className="flex h-24 min-w-35 flex-1 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
+          <div className="flex h-24 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
             <p className="text-sm font-bold">
               Humidity
             </p>
@@ -359,7 +387,7 @@ export default function Result({
             </p>
           </div>
 
-          <div className="flex h-24 min-w-35 flex-1 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
+          <div className="flex h-24 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
             <p className="text-sm font-bold">
               Wind
             </p>
@@ -385,7 +413,7 @@ export default function Result({
             </p>
           </div>
 
-          <div className="flex h-24 min-w-35 flex-1 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
+          <div className="flex h-24 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
             <p className="text-sm font-bold">
               Precipitation
             </p>
@@ -417,7 +445,7 @@ export default function Result({
             Daily forecast
           </p>
 
-          <div className="flex w-full gap-3 overflow-x-auto pb-2">
+          <div className="flex w-full gap-3 overflow-x-auto pb-2 [scrollbar-color:#55556f_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#55556f]">
             {loading
               ? Array.from({
                   length: 7,
@@ -482,36 +510,39 @@ export default function Result({
         </div>
       </div>
 
-      <div className="h-107 w-full max-w-60 rounded-lg bg-[#25253f] text-white">
+      <div className="h-107 w-full rounded-lg bg-[#25253f] text-white">
         <div className="flex items-center justify-between p-3">
           <p className="text-sm">
             Hourly forecast
           </p>
 
-          <button
-            type="button"
-            onClick={() =>
-              setShow(
-                (previous) => !previous,
-              )
-            }
-            aria-expanded={show}
-            aria-haspopup="listbox"
-            className="relative flex h-8 cursor-pointer items-center justify-center gap-1 rounded-sm border border-[#ffffff17] px-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#4656d7]"
-          >
-            <p>
-              {day || "Select day"}
-            </p>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() =>
+                setShow(
+                  (previous) =>
+                    !previous,
+                )
+              }
+              aria-expanded={show}
+              aria-haspopup="listbox"
+              className="flex h-8 cursor-pointer items-center justify-center gap-1 rounded-sm border border-[#ffffff17] px-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#4656d7]"
+            >
+              <span>
+                {day || "Select day"}
+              </span>
 
-            <img
-              src={dropIcon}
-              alt=""
-              className={`w-3 transition-transform ${
-                show
-                  ? "rotate-180"
-                  : ""
-              }`}
-            />
+              <img
+                src={dropIcon}
+                alt=""
+                className={`w-3 transition-transform ${
+                  show
+                    ? "rotate-180"
+                    : ""
+                }`}
+              />
+            </button>
 
             {show && (
               <div
@@ -532,14 +563,14 @@ export default function Result({
                       setDay(item);
                       setShow(false);
                     }}
-                    className="w-full rounded-sm px-2 py-2 text-left hover:bg-[#2f2f49] focus:outline-none focus:ring-2 focus:ring-[#4656d7]"
+                    className="w-full rounded-sm px-2 py-2 text-left text-sm hover:bg-[#2f2f49] focus:outline-none focus:ring-2 focus:ring-[#4656d7]"
                   >
                     {item}
                   </button>
                 ))}
               </div>
             )}
-          </button>
+          </div>
         </div>
 
         {loading ? (
@@ -555,49 +586,53 @@ export default function Result({
           </div>
         ) : (
           <div className="h-90 overflow-y-auto p-3 [scrollbar-color:#55556f_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#55556f]">
-            {selectedHourly.length > 0 ? (
-              selectedHourly.map((item) => (
-                <div
-                  key={item.time}
-                  className="mb-2 flex h-12 w-full items-center justify-between rounded-md bg-[#2f2f49] p-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={getIcon(
-                        item.weatherCode,
-                      )}
-                      alt={getWeatherCondition(
-                        item.weatherCode,
-                      )}
-                      className="w-7"
-                    />
+            {selectedHourly.length >
+            0 ? (
+              selectedHourly.map(
+                (item) => (
+                  <div
+                    key={item.time}
+                    className="mb-2 flex h-12 w-full items-center justify-between rounded-md bg-[#2f2f49] p-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={getIcon(
+                          item.weatherCode,
+                        )}
+                        alt={getWeatherCondition(
+                          item.weatherCode,
+                        )}
+                        className="w-7"
+                      />
 
-                    <p className="text-sm">
-                      {new Date(
-                        item.time,
-                      ).toLocaleTimeString(
-                        [],
-                        {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        },
+                      <p className="text-sm">
+                        {new Date(
+                          item.time,
+                        ).toLocaleTimeString(
+                          [],
+                          {
+                            hour: "numeric",
+                            minute:
+                              "2-digit",
+                          },
+                        )}
+                      </p>
+                    </div>
+
+                    <p>
+                      {Math.round(
+                        units.temperature ===
+                          "fahrenheit"
+                          ? celsiusToFahrenheit(
+                              item.temperature,
+                            )
+                          : item.temperature,
                       )}
+                      °
                     </p>
                   </div>
-
-                  <p>
-                    {Math.round(
-                      units.temperature ===
-                        "fahrenheit"
-                        ? celsiusToFahrenheit(
-                            item.temperature,
-                          )
-                        : item.temperature,
-                    )}
-                    °
-                  </p>
-                </div>
-              ))
+                ),
+              )
             ) : (
               <p className="p-4 text-center text-sm text-gray-400">
                 No hourly data available.
