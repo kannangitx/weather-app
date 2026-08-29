@@ -17,13 +17,18 @@ export function getWordDay(date, type) {
   });
 }
 
-export async function getPlaceDetails(latitude, longitude) {
+export async function getPlaceDetails(
+  latitude,
+  longitude,
+) {
   const res = await fetch(
     `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
   );
 
   if (!res.ok) {
-    throw new Error("Failed to get place details");
+    throw new Error(
+      "Failed to get place details",
+    );
   }
 
   return await res.json();
@@ -58,7 +63,7 @@ export function getWeatherCondition(code) {
     return "snow";
   }
 
-  if (code === 80 || code === 81 || code === 82) {
+  if (code >= 80 && code <= 82) {
     return "rain";
   }
 
