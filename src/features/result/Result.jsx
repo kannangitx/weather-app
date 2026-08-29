@@ -42,11 +42,7 @@ function mmToInches(mm) {
   return mm * 0.0393701;
 }
 
-export default function Result({
-  location,
-  locationLoading,
-  units,
-}) {
+export default function Result({ location, locationLoading, units }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [place, setPlace] = useState(null);
@@ -54,96 +50,54 @@ export default function Result({
   const [status, setStatus] = useState("");
   const [day, setDay] = useState("");
   const [show, setShow] = useState(false);
-  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!location) {
-      return;
-    }
+    if (!location) return;
 
-    const controller =
-      new AbortController();
+    const controller = new AbortController();
 
     async function fetchWeather() {
       setLoading(true);
-      setError("");
 
       try {
-        const {
-          latitude,
-          longitude,
-        } = location;
+        const { latitude, longitude } = location;
 
         const res = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m,precipitation&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m,weather_code&timezone=auto`,
+          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m,precipitation&daily=weather_code,temperature_2m_max,temperature_2m_min&hourly=temperature_2m,weather_code&timezone=auto`,
           {
-            signal:
-              controller.signal,
+            signal: controller.signal,
           },
         );
 
         if (!res.ok) {
-          throw new Error(
-            "Weather API failed",
-          );
+          throw new Error("Weather API failed");
         }
 
-        const weatherData =
-          await res.json();
-
-        if (controller.signal.aborted) {
-          return;
-        }
+        const weatherData = await res.json();
 
         setData(weatherData);
-
-        setDate(
-          getDate(
-            weatherData.current.time,
-          ),
-        );
-
+        setDate(getDate(weatherData.current.time));
         setStatus(
-          getWeatherCondition(
-            weatherData.current
-              .weather_code,
-          ),
+          getWeatherCondition(weatherData.current.weather_code),
         );
-
-        setDay(
-          getWordDay(
-            weatherData.current.time,
-            "long",
-          ),
-        );
+        setDay(getWordDay(weatherData.current.time, "long"));
 
         try {
-          const placeData =
-            await getPlaceDetails(
-              latitude,
-              longitude,
-            );
+          const placeData = await getPlaceDetails(
+            latitude,
+            longitude,
+          );
 
-          if (!controller.signal.aborted) {
-            setPlace(placeData);
-          }
+          setPlace(placeData);
         } catch {
-          if (!controller.signal.aborted) {
-            setPlace(null);
-          }
+          setPlace(null);
         }
       } catch (error) {
-        if (
-          error.name !== "AbortError"
-        ) {
-          setError(
-            "Unable to load weather data. Please try again.",
-          );
+        if (error.name !== "AbortError") {
+          console.error(error);
         }
       } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 
@@ -155,55 +109,31 @@ export default function Result({
   }, [location]);
 
   const forecast = useMemo(() => {
-    if (!data?.daily?.time) {
-      return [];
-    }
+    if (!data?.daily?.time) return [];
 
-    return data.daily.time.map(
-      (dateValue, index) => ({
-        day: dateValue,
-        weatherCode:
-          data.daily.weather_code[
-            index
-          ],
-        max:
-          data.daily
-            .temperature_2m_max[index],
-        min:
-          data.daily
-            .temperature_2m_min[index],
-      }),
-    );
+    return data.daily.time.map((dateValue, index) => ({
+      day: dateValue,
+      weatherCode: data.daily.weather_code[index],
+      max: data.daily.temperature_2m_max[index],
+      min: data.daily.temperature_2m_min[index],
+    }));
   }, [data]);
 
   const hourly = useMemo(() => {
-    if (!data?.hourly?.time) {
-      return [];
-    }
+    if (!data?.hourly?.time) return [];
 
-    return data.hourly.time.map(
-      (time, index) => ({
-        time,
-        weatherCode:
-          data.hourly.weather_code[
-            index
-          ],
-        temperature:
-          data.hourly.temperature_2m[
-            index
-          ],
-      }),
-    );
+    return data.hourly.time.map((time, index) => ({
+      time,
+      weatherCode: data.hourly.weather_code[index],
+      temperature: data.hourly.temperature_2m[index],
+    }));
   }, [data]);
 
   const groupedHourly = useMemo(() => {
     const grouped = {};
 
     hourly.forEach((item) => {
-      const weekday = getWordDay(
-        item.time,
-        "long",
-      );
+      const weekday = getWordDay(item.time, "long");
 
       if (!grouped[weekday]) {
         grouped[weekday] = [];
@@ -215,8 +145,7 @@ export default function Result({
     return grouped;
   }, [hourly]);
 
-  const selectedHourly =
-    groupedHourly[day] || [];
+  const selectedHourly = groupedHourly[day] || [];
 
   const locationName =
     place?.city ||
@@ -224,423 +153,382 @@ export default function Result({
     place?.principalSubdivision ||
     "Your Location";
 
-  const locationCountry =
-    place?.countryName || "";
+  const temperature = data
+    ? Math.round(
+        units.temperature === "fahrenheit"
+          ? celsiusToFahrenheit(data.current.temperature_2m)
+          : data.current.temperature_2m,
+      )
+    : 0;
 
-  function getIcon(code) {
-    const weatherStatus =
-      getWeatherCondition(code);
+  const feelsLike = data
+    ? Math.round(
+        units.temperature === "fahrenheit"
+          ? celsiusToFahrenheit(
+              data.current.apparent_temperature,
+            )
+          : data.current.apparent_temperature,
+      )
+    : 0;
 
-    return (
-      weatherIcons[weatherStatus] ||
-      overcast
-    );
-  }
+  const wind = data
+    ? Math.round(
+        units.windSpeed === "mph"
+          ? kmhToMph(data.current.wind_speed_10m)
+          : data.current.wind_speed_10m,
+      )
+    : 0;
+
+  const precipitation = data
+    ? units.precipitation === "inch"
+      ? mmToInches(data.current.precipitation).toFixed(2)
+      : data.current.precipitation
+    : 0;
 
   if (locationLoading) {
     return (
-      <div className="mx-auto mt-7 w-full max-w-6xl">
-        <div className="flex h-44 w-full flex-col items-center justify-center rounded-xl bg-[#25253f]">
+      <main className="w-full max-w-[1100px] mx-auto mt-8">
+        <div className="h-44 rounded-xl bg-[#25253f] flex flex-col items-center justify-center">
           <img
             src={loadingIcon}
-            alt="Loading weather"
+            alt="Loading"
             className="w-8 animate-spin"
           />
-
-          <p className="mt-3 text-white">
+          <p className="text-white mt-3">
             Getting your location...
           </p>
         </div>
-      </div>
+      </main>
     );
   }
 
   if (!location) {
-    return (
-      <div className="mx-auto mt-7 w-full max-w-6xl">
-        <div className="flex h-44 w-full items-center justify-center rounded-xl bg-[#25253f]">
-          <p className="text-center text-gray-400">
-            Search for a city to see the weather.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && !data) {
-    return (
-      <div className="mx-auto mt-7 w-full max-w-6xl">
-        <div className="flex h-44 w-full items-center justify-center rounded-xl bg-[#25253f]">
-          <p className="text-center text-red-400">
-            {error}
-          </p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className="mx-auto mt-7 grid w-full max-w-6xl grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_240px]">
-      <div className="flex min-w-0 flex-col gap-5">
-        <div
-          className="flex min-h-44 w-full items-center justify-between rounded-xl bg-cover bg-no-repeat p-5 md:p-6"
-          style={{
-            backgroundColor:
-              "#25253f",
-            backgroundImage: loading
-              ? "none"
-              : `url(${bg})`,
-          }}
-        >
-          {loading ? (
-            <div className="flex h-full w-full flex-col items-center justify-center">
-              <img
-                src={loadingIcon}
-                alt="Loading weather"
-                className="w-8 animate-spin"
-              />
+    <main className="w-full max-w-[1100px] mx-auto mt-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
+        <section className="min-w-0 flex flex-col gap-5">
+          <div
+            className="w-full h-44 sm:h-48 rounded-xl p-5 bg-cover bg-center flex justify-between items-center overflow-hidden"
+            style={{
+              backgroundColor: "#25253f",
+              backgroundImage: loading
+                ? "none"
+                : `url(${bg})`,
+            }}
+          >
+            {loading ? (
+              <div className="w-full h-full flex flex-col items-center justify-center">
+                <img
+                  src={loadingIcon}
+                  alt="Loading"
+                  className="w-8 animate-spin"
+                />
+                <p className="text-white mt-2">
+                  Loading...
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="text-white min-w-0">
+                  <p className="font-semibold text-2xl sm:text-3xl truncate">
+                    {locationName}
+                  </p>
 
-              <p className="mt-2 text-white">
-                Loading...
+                  <p className="text-sm text-gray-300 mt-1">
+                    {place?.countryName ||
+                      place?.country ||
+                      "India"}
+                  </p>
+
+                  <p className="text-xs font-bold text-gray-300 mt-2">
+                    {date}
+                  </p>
+                </div>
+
+                <div className="flex items-center shrink-0">
+                  <img
+                    src={
+                      weatherIcons[status] ??
+                      weatherIcons.overcast
+                    }
+                    alt={status}
+                    className="w-14 sm:w-20"
+                  />
+
+                  <p className="text-5xl sm:text-7xl text-white">
+                    {temperature}°
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-[#25253f] h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
+              <p className="text-sm font-bold">
+                Feels Like
+              </p>
+
+              <p className="text-2xl">
+                {loading ? "—" : `${feelsLike}°`}
               </p>
             </div>
-          ) : data ? (
-            <>
-              <div className="text-white">
-                <p className="text-xl font-semibold md:text-2xl">
-                  {locationName}
-                </p>
 
-                {locationCountry && (
-                  <p className="mt-1 text-sm text-gray-300">
-                    {locationCountry}
-                  </p>
-                )}
+            <div className="bg-[#25253f] h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
+              <p className="text-sm font-bold">
+                Humidity
+              </p>
 
-                <p className="mt-1 text-xs font-bold text-gray-300">
-                  {date}
-                </p>
-              </div>
+              <p className="text-2xl">
+                {loading
+                  ? "—"
+                  : `${Math.round(
+                      data.current.relative_humidity_2m,
+                    )}%`}
+              </p>
+            </div>
 
-              <div className="flex items-center">
-                <img
-                  src={getIcon(
-                    data.current
-                      .weather_code,
-                  )}
-                  alt={status}
-                  className="w-14 md:w-20"
-                />
+            <div className="bg-[#25253f] h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
+              <p className="text-sm font-bold">
+                Wind
+              </p>
 
-                <p className="text-5xl text-white md:text-7xl">
-                  {Math.round(
-                    units.temperature ===
-                      "fahrenheit"
-                      ? celsiusToFahrenheit(
-                          data.current
-                            .temperature_2m,
-                        )
-                      : data.current
-                          .temperature_2m,
-                  )}
-                  °
-                </p>
-              </div>
-            </>
-          ) : null}
-        </div>
+              <p className="text-2xl">
+                {loading
+                  ? "—"
+                  : `${wind} ${
+                      units.windSpeed === "mph"
+                        ? "mph"
+                        : "km/h"
+                    }`}
+              </p>
+            </div>
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="flex h-24 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
-            <p className="text-sm font-bold">
-              Feels Like
-            </p>
+            <div className="bg-[#25253f] h-24 rounded-md flex flex-col justify-center p-4 gap-2 text-white">
+              <p className="text-sm font-bold">
+                Precipitation
+              </p>
 
-            <p className="text-2xl">
-              {loading || !data
-                ? "—"
-                : `${Math.round(
-                    units.temperature ===
-                      "fahrenheit"
-                      ? celsiusToFahrenheit(
-                          data.current
-                            .apparent_temperature,
-                        )
-                      : data.current
-                          .apparent_temperature,
-                  )}°`}
-            </p>
+              <p className="text-2xl">
+                {loading
+                  ? "—"
+                  : `${precipitation} ${
+                      units.precipitation === "inch"
+                        ? "in"
+                        : "mm"
+                    }`}
+              </p>
+            </div>
           </div>
 
-          <div className="flex h-24 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
-            <p className="text-sm font-bold">
-              Humidity
+          <section className="text-white">
+            <p className="mb-3 font-medium">
+              Daily forecast
             </p>
 
-            <p className="text-2xl">
-              {loading || !data
-                ? "—"
-                : `${Math.round(
-                    data.current
-                      .relative_humidity_2m,
-                  )}%`}
-            </p>
-          </div>
-
-          <div className="flex h-24 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
-            <p className="text-sm font-bold">
-              Wind
-            </p>
-
-            <p className="text-2xl">
-              {loading || !data
-                ? "—"
-                : `${Math.round(
-                    units.windSpeed ===
-                      "mph"
-                      ? kmhToMph(
-                          data.current
-                            .wind_speed_10m,
-                        )
-                      : data.current
-                          .wind_speed_10m,
-                )} ${
-                    units.windSpeed ===
-                    "mph"
-                      ? "mph"
-                      : "km/h"
-                  }`}
-            </p>
-          </div>
-
-          <div className="flex h-24 flex-col justify-center gap-2 rounded-md bg-[#25253f] p-4 text-white">
-            <p className="text-sm font-bold">
-              Precipitation
-            </p>
-
-            <p className="text-2xl">
-              {loading || !data
-                ? "—"
-                : `${
-                    units.precipitation ===
-                    "inch"
-                      ? mmToInches(
-                          data.current
-                            .precipitation,
-                        ).toFixed(2)
-                      : data.current
-                          .precipitation
-                  } ${
-                    units.precipitation ===
-                    "inch"
-                      ? "in"
-                      : "mm"
-                  }`}
-            </p>
-          </div>
-        </div>
-
-        <div className="text-white">
-          <p className="mb-3">
-            Daily forecast
-          </p>
-
-          <div className="flex w-full gap-3 overflow-x-auto pb-2 [scrollbar-color:#55556f_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#55556f]">
-            {loading
-              ? Array.from({
-                  length: 7,
-                }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="h-30 min-w-22 animate-pulse rounded-lg bg-[#25253f]"
-                  />
-                ))
-              : forecast
-                  .slice(0, 7)
-                  .map((item) => (
-                    <div
-                      key={item.day}
-                      className="flex h-30 min-w-22 flex-col items-center justify-center rounded-lg bg-[#25253f] p-2"
-                    >
-                      <p className="text-sm">
-                        {getWordDay(
-                          item.day,
-                          "short",
-                        )}
-                      </p>
-
-                      <img
-                        src={getIcon(
-                          item.weatherCode,
-                        )}
-                        alt={getWeatherCondition(
-                          item.weatherCode,
-                        )}
-                        className="w-9"
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+              {loading
+                ? Array.from({ length: 7 }).map(
+                    (_, index) => (
+                      <div
+                        key={index}
+                        className="h-30 bg-[#25253f] rounded-lg animate-pulse"
                       />
+                    ),
+                  )
+                : forecast
+                    .slice(0, 7)
+                    .map((item) => {
+                      const weatherCondition =
+                        getWeatherCondition(
+                          item.weatherCode,
+                        );
 
-                      <div className="flex gap-3">
-                        <p>
-                          {Math.round(
-                            units.temperature ===
-                              "fahrenheit"
-                              ? celsiusToFahrenheit(
-                                  item.max,
-                                )
-                              : item.max,
-                          )}
-                          °
-                        </p>
+                      return (
+                        <div
+                          key={item.day}
+                          className="h-30 bg-[#25253f] rounded-lg flex flex-col justify-center items-center p-2"
+                        >
+                          <p className="text-sm">
+                            {getWordDay(
+                              item.day,
+                              "short",
+                            )}
+                          </p>
 
-                        <p className="text-gray-400">
-                          {Math.round(
-                            units.temperature ===
-                              "fahrenheit"
-                              ? celsiusToFahrenheit(
-                                  item.min,
-                                )
-                              : item.min,
-                          )}
-                          °
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-          </div>
-        </div>
-      </div>
+                          <img
+                            src={
+                              weatherIcons[
+                                weatherCondition
+                              ] ??
+                              weatherIcons.overcast
+                            }
+                            alt={weatherCondition}
+                            className="w-9"
+                          />
 
-      <div className="h-107 w-full rounded-lg bg-[#25253f] text-white">
-        <div className="flex items-center justify-between p-3">
-          <p className="text-sm">
-            Hourly forecast
-          </p>
+                          <div className="flex gap-3">
+                            <p>
+                              {Math.round(
+                                units.temperature ===
+                                  "fahrenheit"
+                                  ? celsiusToFahrenheit(
+                                      item.max,
+                                    )
+                                  : item.max,
+                              )}
+                              °
+                            </p>
 
-          <div className="relative">
+                            <p className="text-gray-400">
+                              {Math.round(
+                                units.temperature ===
+                                  "fahrenheit"
+                                  ? celsiusToFahrenheit(
+                                      item.min,
+                                    )
+                                  : item.min,
+                              )}
+                              °
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+            </div>
+          </section>
+        </section>
+
+        <aside className="bg-[#25253f] rounded-lg text-white h-[430px] overflow-hidden">
+          <div className="flex justify-between p-3 items-center">
+            <p className="text-sm font-medium">
+              Hourly forecast
+            </p>
+
             <button
               type="button"
               onClick={() =>
-                setShow(
-                  (previous) =>
-                    !previous,
-                )
+                setShow((previous) => !previous)
               }
               aria-expanded={show}
-              aria-haspopup="listbox"
-              className="flex h-8 cursor-pointer items-center justify-center gap-1 rounded-sm border border-[#ffffff17] px-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#4656d7]"
+              className="h-8 px-2 flex justify-center items-center gap-1 cursor-pointer border border-[#ffffff17] rounded-sm relative text-xs"
             >
-              <span>
-                {day || "Select day"}
-              </span>
+              <span>{day || "Select day"}</span>
 
               <img
                 src={dropIcon}
                 alt=""
                 className={`w-3 transition-transform ${
-                  show
-                    ? "rotate-180"
-                    : ""
+                  show ? "rotate-180" : ""
                 }`}
               />
+
+              {show && (
+                <div className="absolute w-40 bg-[#25253f] right-0 top-10 border border-[#ffffff17] rounded-md p-2 z-50">
+                  {Object.keys(groupedHourly).map(
+                    (item) => (
+                      <span
+                        key={item}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          setDay(item);
+                          setShow(false);
+                        }}
+                        onKeyDown={(e) => {
+                          if (
+                            e.key === "Enter" ||
+                            e.key === " "
+                          ) {
+                            setDay(item);
+                            setShow(false);
+                          }
+                        }}
+                        className="block w-full text-left px-2 py-2 hover:bg-[#2f2f49] rounded-sm cursor-pointer"
+                      >
+                        {item}
+                      </span>
+                    ),
+                  )}
+                </div>
+              )}
             </button>
-
-            {show && (
-              <div
-                role="listbox"
-                className="absolute right-0 top-10 z-50 w-40 rounded-md border border-[#ffffff17] bg-[#25253f] p-2 shadow-xl"
-              >
-                {Object.keys(
-                  groupedHourly,
-                ).map((item) => (
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={
-                      day === item
-                    }
-                    key={item}
-                    onClick={() => {
-                      setDay(item);
-                      setShow(false);
-                    }}
-                    className="w-full rounded-sm px-2 py-2 text-left text-sm hover:bg-[#2f2f49] focus:outline-none focus:ring-2 focus:ring-[#4656d7]"
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
-        </div>
 
-        {loading ? (
-          <div className="flex flex-col gap-2 p-3">
-            {Array.from({
-              length: 7,
-            }).map((_, index) => (
-              <div
-                key={index}
-                className="h-12 animate-pulse rounded-md bg-[#2f2f49]"
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="h-90 overflow-y-auto p-3 [scrollbar-color:#55556f_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#55556f]">
-            {selectedHourly.length >
-            0 ? (
-              selectedHourly.map(
-                (item) => (
+          {loading ? (
+            <div className="p-3 flex flex-col gap-2">
+              {Array.from({ length: 7 }).map(
+                (_, index) => (
                   <div
-                    key={item.time}
-                    className="mb-2 flex h-12 w-full items-center justify-between rounded-md bg-[#2f2f49] p-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={getIcon(
-                          item.weatherCode,
-                        )}
-                        alt={getWeatherCondition(
-                          item.weatherCode,
-                        )}
-                        className="w-7"
-                      />
+                    key={index}
+                    className="h-12 bg-[#2f2f49] rounded-md animate-pulse"
+                  />
+                ),
+              )}
+            </div>
+          ) : (
+            <div
+              className="
+                h-[370px]
+                p-3
+                flex
+                flex-col
+                gap-2
+                overflow-y-auto
+                [&::-webkit-scrollbar]:w-1
+                [&::-webkit-scrollbar-track]:bg-[#25253f]
+                [&::-webkit-scrollbar-thumb]:bg-[#55556f]
+                [&::-webkit-scrollbar-thumb]:rounded-full
+              "
+            >
+              {selectedHourly.map((item) => (
+                <div
+                  key={item.time}
+                  className="flex justify-between w-full min-h-12 bg-[#2f2f49] rounded-md p-2 items-center shrink-0"
+                >
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={
+                        weatherIcons[
+                          getWeatherCondition(
+                            item.weatherCode,
+                          )
+                        ] ?? weatherIcons.overcast
+                      }
+                      alt=""
+                      className="w-7"
+                    />
 
-                      <p className="text-sm">
-                        {new Date(
-                          item.time,
-                        ).toLocaleTimeString(
-                          [],
-                          {
-                            hour: "numeric",
-                            minute:
-                              "2-digit",
-                          },
-                        )}
-                      </p>
-                    </div>
-
-                    <p>
-                      {Math.round(
-                        units.temperature ===
-                          "fahrenheit"
-                          ? celsiusToFahrenheit(
-                              item.temperature,
-                            )
-                          : item.temperature,
-                      )}
-                      °
+                    <p className="text-sm">
+                      {new Date(
+                        item.time,
+                      ).toLocaleTimeString([], {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </div>
-                ),
-              )
-            ) : (
-              <p className="p-4 text-center text-sm text-gray-400">
-                No hourly data available.
-              </p>
-            )}
-          </div>
-        )}
+
+                  <p>
+                    {Math.round(
+                      units.temperature ===
+                        "fahrenheit"
+                        ? celsiusToFahrenheit(
+                            item.temperature,
+                          )
+                        : item.temperature,
+                    )}
+                    °
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </aside>
       </div>
-    </div>
+    </main>
   );
 }
