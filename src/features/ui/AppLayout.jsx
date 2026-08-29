@@ -6,11 +6,9 @@ import Header from "./Header";
 
 export default function AppLayout() {
   // SEARCH
-
   const [search, setSearch] = useState("");
 
   // LOCATION
-
   const [location, setLocation] = useState(null);
 
   const [locationLoading, setLocationLoading] = useState(true);
@@ -18,37 +16,36 @@ export default function AppLayout() {
   const [locationError, setLocationError] = useState("");
 
   // UNITS
-
   const [units, setUnits] = useState({
     temperature: "celsius",
     windSpeed: "kmh",
     precipitation: "mm",
   });
 
-  // GEOLOCATION SUPPORT
-
-  const geolocationSupported =
-    typeof navigator !== "undefined" && "geolocation" in navigator;
-
   // GET USER CURRENT LOCATION
-
   useEffect(() => {
-    if (!geolocationSupported) {
+    // Check geolocation inside the effect
+    // instead of calculating it during render.
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.geolocation
+    ) {
+      setLocationLoading(false);
       return;
     }
 
+    let cancelled = false;
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        console.log(
-          "User location:",
-          position.coords.latitude,
-          position.coords.longitude,
-        );
+        if (cancelled) return;
+
+        const { latitude, longitude } =
+          position.coords;
 
         setLocation({
-          latitude: position.coords.latitude,
-
-          longitude: position.coords.longitude,
+          latitude,
+          longitude,
         });
 
         setLocationLoading(false);
@@ -56,56 +53,67 @@ export default function AppLayout() {
       },
 
       (error) => {
+        if (cancelled) return;
+
         console.log("Geolocation error:", error);
 
-        setLocationError(
-          "Location permission denied. Please search for a place.",
-        );
-
         setLocationLoading(false);
+
+        setLocationError(
+          "Location permission denied. Please search for a place."
+        );
       },
 
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 0,
-      },
+        maximumAge: 300000,
+      }
     );
-  }, [geolocationSupported]);
 
-  // UI
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
-    <div className="flex flex-col items-center w-full min-h-dvh px-12 py-8 bg-[#02012b]">
+    <div className="flex min-h-dvh w-full flex-col items-center bg-[#02012b] px-4 py-6 md:px-12 md:py-8">
+
       {/* HEADER */}
+      <header className="w-full">
+        <Header
+          units={units}
+          setUnits={setUnits}
+        />
+      </header>
 
-      <Header units={units} setUnits={setUnits} />
+      {/* MAIN */}
+      <main className="w-full">
+        
+        {/* SEARCH */}
+        <Searc
+          search={search}
+          setSearch={setSearch}
+          setLocation={setLocation}
+        />
 
-      {/* SEARCH */}
+        {/* LOCATION ERROR */}
+        {locationError && (
+          <p
+            role="alert"
+            className="mt-4 text-center text-sm text-gray-400"
+          >
+            {locationError}
+          </p>
+        )}
 
-      <Searc search={search} setSearch={setSearch} setLocation={setLocation} />
-
-      {/* LOCATION ERROR */}
-
-      {!geolocationSupported && (
-        <p className="text-gray-400 text-sm mt-4">
-          Geolocation is not supported by your browser.
-        </p>
-      )}
-
-      {geolocationSupported && locationError && (
-        <p className="text-gray-400 text-sm mt-4 text-center">
-          {locationError}
-        </p>
-      )}
-
-      {/* RESULT */}
-
-      <Result
-        location={location}
-        locationLoading={locationLoading}
-        units={units}
-      />
+        {/* RESULT */}
+        <Result
+          location={location}
+          locationLoading={locationLoading}
+          units={units}
+        />
+      </main>
     </div>
   );
 }
